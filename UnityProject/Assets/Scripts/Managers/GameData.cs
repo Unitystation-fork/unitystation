@@ -1,15 +1,16 @@
 ﻿using System;
 using System.Collections;
-using System.IO;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using SecureStuff;
 using DatabaseAPI;
 using Lobby;
+using Logs;
 using Managers;
+using Newtonsoft.Json;
 using Shared.Util;
 using UnityEngine;
-using UnityEngine.Networking;
 using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
@@ -37,6 +38,8 @@ public class GameData : MonoBehaviour
 
 	public bool testServer;
 	private RconManager rconManager;
+
+	public bool DoNotLoadEditorPreviousScene;
 
 	/// <summary>
 	///     Check to see if you are in the game or in the lobby
@@ -70,17 +73,18 @@ public class GameData : MonoBehaviour
 		var url = "https://api.unitystation.org/validatetoken?data=";
 
 		HttpRequestMessage r = new HttpRequestMessage(HttpMethod.Get,
-			url + UnityWebRequest.EscapeURL(JsonUtility.ToJson("")));
+			url + JsonConvert.SerializeObject(""));
 
 		CancellationToken cancellationToken = new CancellationTokenSource(120000).Token;
 
 		HttpResponseMessage res;
 		try
 		{
-			res = await ServerData.HttpClient.SendAsync(r, cancellationToken);
+			res = await SafeHttpRequest.SendAsync(r, cancellationToken);
 		}
 		catch (System.Net.Http.HttpRequestException e)
 		{
+			Loggy.LogError(" APITest Failed setting to off-line mode  " +e.ToString());
 			forceOfflineMode = true;
 			return;
 		}
@@ -99,18 +103,17 @@ public class GameData : MonoBehaviour
 #if UNITY_EDITOR
 		DevBuild = true;
 #endif
-		var buildInfo =
-			JsonUtility.FromJson<BuildInfo>(File.ReadAllText(Path.Combine(Application.streamingAssetsPath,
-				"buildinfo.json")));
+		var buildInfo = JsonConvert.DeserializeObject<BuildInfo>(AccessFile.Load("buildinfo.json"));
 		BuildNumber = buildInfo.BuildNumber;
 		ForkName = buildInfo.ForkName;
 		forceOfflineMode = !string.IsNullOrEmpty(GetArgument("-offlinemode"));
-		Logger.Log($"Build Version is: {BuildNumber}. " + (OfflineMode ? "Offline mode" : string.Empty));
+		Loggy.Log($"Build Version is: {BuildNumber}. " + (OfflineMode ? "Offline mode" : string.Empty));
 		CheckHeadlessState();
 		APITest();
-		Environment.SetEnvironmentVariable("MONO_REFLECTION_SERIALIZER", "yes");
 
-		string testServerEnv = Environment.GetEnvironmentVariable("TEST_SERVER");
+		AllowedEnvironmentVariables.SetMONO_REFLECTION_SERIALIZER();
+
+		string testServerEnv = AllowedEnvironmentVariables.GetTEST_SERVER();
 		if (!string.IsNullOrEmpty(testServerEnv))
 		{
 			testServer = Convert.ToBoolean(testServerEnv);
@@ -122,7 +125,7 @@ public class GameData : MonoBehaviour
 
 	private void OnEnable()
 	{
-		Logger.RefreshPreferences();
+		Loggy.RefreshPreferences();
 
 		SceneManager.activeSceneChanged += OnLevelFinishedLoading;
 	}
@@ -173,7 +176,7 @@ public class GameData : MonoBehaviour
 			//			Logger.Log($"Starting server in HEADLESS mode. Target framerate is {Application.targetFrameRate}",
 			//				Category.Server);
 
-			Logger.Log($"FrameRate limiting has been disabled on Headless Server",
+			Loggy.Log($"FrameRate limiting has been disabled on Headless Server",
 				Category.Server);
 			IsHeadlessServer = true;
 			StartCoroutine(WaitToStartServer());
@@ -182,7 +185,7 @@ public class GameData : MonoBehaviour
 			{
 				GameObject rcon = Instantiate(Resources.Load("Rcon/RconManager") as GameObject, null) as GameObject;
 				rconManager = rcon.GetComponent<RconManager>();
-				Logger.Log("Start rcon server", Category.Rcon);
+				Loggy.Log("Start rcon server", Category.Rcon);
 			}
 		}
 	}
@@ -200,7 +203,7 @@ public class GameData : MonoBehaviour
 
 		if (ushort.TryParse(portStr, out var port) == false)
 		{
-			Logger.LogWarning("Invalid port provided in command line. Cannot join game via args.");
+			Loggy.LogWarning("Invalid port provided in command line. Cannot join game via args.");
 			return false;
 		}
 
@@ -213,13 +216,13 @@ public class GameData : MonoBehaviour
 
 		if (string.IsNullOrEmpty(token) == false)
 		{
-			Logger.Log("Logging in via hub account...");
+			Loggy.Log("Logging in via hub account...");
 			if (await LobbyManager.Instance.TryTokenLogin(uid, token))
 			{
 				LobbyManager.Instance.JoinServer(ip, port);
 				return true;
 			}
-			Logger.LogWarning("Logging in via hub account (via command line args) failed.");
+			Loggy.LogWarning("Logging in via hub account (via command line args) failed.");
 		}
 
 		if (await LobbyManager.Instance.TryAutoLogin())
@@ -228,7 +231,7 @@ public class GameData : MonoBehaviour
 			return true;
 		}
 
-		Logger.LogWarning("Logging in via stored account token failed.");
+		Loggy.LogWarning("Logging in via stored account token failed.");
 		return false;
 	}
 

@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
+using Logs;
+using Systems.Antagonists.Antags;
 using UnityEngine;
 using Systems.GhostRoles;
 
@@ -21,7 +23,10 @@ namespace Antagonists
 		/// </summary>
 		protected override bool IsPossibleInternal(Mind candidate)
 		{
-			int targetCount = PlayerList.Instance.InGamePlayers.Count(p => (p.Mind != candidate) && !AntagManager.Instance.TargetedPlayers.Contains(p.Mind));
+			var players = PlayerList.Instance.InGamePlayers.FindAll(x => x.Mind != null);
+			int targetCount = players.Count(p => (p.Mind != candidate)
+			                                     && AntagManager.Instance.TargetedPlayers.Contains(p.Mind) == false
+			                                     && p.Mind.GetAntag()?.Antagonist is not BloodBrother);
 			return (targetCount > 0);
 		}
 
@@ -58,7 +63,7 @@ namespace Antagonists
 
 		private void FreeObjective()
 		{
-			Logger.LogWarning("Unable to find any suitable assassination targets! Giving free objective", Category.Antags);
+			Loggy.LogWarning("Unable to find any suitable assassination targets! Giving free objective", Category.Antags);
 			description = "Free objective";
 			Complete = true;
 		}

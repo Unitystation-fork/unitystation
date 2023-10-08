@@ -6,10 +6,12 @@ using UnityEngine.SceneManagement;
 using System.Text;
 using System.Linq;
 using DiscordWebhook;
+using Logs;
 using Messages.Server.LocalGuiMessages;
 using Objects.Command;
 using Strings;
 using Player;
+using Systems.Character;
 
 namespace Antagonists
 {
@@ -58,17 +60,17 @@ namespace Antagonists
 
 		private void OnEnable()
 		{
-			SceneManager.activeSceneChanged += OnSceneChange;
+			EventManager.AddHandler(Event.ReadyToInitialiseMatrices, UpdateSyndiNukeCode);
 			EventManager.AddHandler(Event.RoundEnded, OnRoundEnd);
 		}
 
 		private void OnDisable()
 		{
-			SceneManager.activeSceneChanged -= OnSceneChange;
+			EventManager.RemoveHandler(Event.ReadyToInitialiseMatrices, UpdateSyndiNukeCode);
 			EventManager.RemoveHandler(Event.RoundEnded, OnRoundEnd);
 		}
 
-		private void OnSceneChange(Scene oldScene, Scene newScene)
+		private void UpdateSyndiNukeCode()
 		{
 			SyndiNukeCode = Nuke.CodeGenerator();
 		}
@@ -113,12 +115,22 @@ namespace Antagonists
 			}
 
 			Occupation Occupation = connectedPlayer.Mind.occupation;
+			CharacterSheet CharacterSettings = connectedPlayer.Mind.CurrentCharacterSettings;
+
+			if(antagonist.RandomizeCharacterForGhostRole == true)
+			{
+				CharacterSettings = CharacterSheet.GenerateRandomCharacter();
+			}
+
 			if (antagonist.AntagOccupation != null) // means it as a modifier such as a traitor Traitor CMO, traitor assistant for example
 			{
 				Occupation = antagonist.AntagOccupation;
 			}
-
-			var AntagonistsMind  = PlayerSpawn.NewSpawnPlayerV2(connectedPlayer,Occupation, connectedPlayer.Mind.CurrentCharacterSettings);
+			else if(antagonist.GhostRoleOccupation != null)
+			{
+				Occupation = antagonist.GhostRoleOccupation;
+			}
+			var AntagonistsMind  = PlayerSpawn.NewSpawnPlayerV2(connectedPlayer,Occupation, CharacterSettings);
 			ServerFinishAntag(antagonist, AntagonistsMind);
 		}
 
@@ -127,7 +139,15 @@ namespace Antagonists
 			try
 			{
 				// Generate objectives for this antag
-				List<Objective> objectives = antagData.GenerateObjectives(Mind, chosenAntag);
+				List<Objective> objectives = new List<Objective>();
+
+				try
+				{
+					objectives.AddRange(antagData.GenerateObjectives(Mind, chosenAntag));
+				} catch (Exception e)
+				{
+					Loggy.LogError($"failed to create antagonist objectives {chosenAntag.OrNull()?.AntagName} " + e.ToString());
+				}
 				// Set the antag
 				var spawnedAntag = SpawnedAntag.Create(chosenAntag, Mind, objectives);
 				Mind.SetAntag(spawnedAntag);
@@ -135,7 +155,7 @@ namespace Antagonists
 			}
 			catch (Exception e)
 			{
-				Logger.LogError( $"failed to create antagonist {chosenAntag.OrNull()?.AntagName} "  + e.ToString());
+				Loggy.LogError( $"failed to create antagonist {chosenAntag.OrNull()?.AntagName} "  + e.ToString());
 				return null;
 			}
 
@@ -150,7 +170,7 @@ namespace Antagonists
 			ShowAntagBanner(SpawnMind, chosenAntag);
 			chosenAntag.AfterSpawn(SpawnMind);
 
-			Logger.Log(
+			Loggy.Log(
 				$"Created new antag. Made {SpawnMind.name} a {chosenAntag.AntagName} with objectives:\n{spawnedAntag.GetObjectivesForLog()}",
 				Category.Antags);
 		}

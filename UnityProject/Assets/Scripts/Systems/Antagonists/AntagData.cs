@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using System.Linq;
+using Logs;
 
 namespace Antagonists
 {
@@ -40,7 +41,7 @@ namespace Antagonists
 			var antag = Antags[Random.Range(0, Antags.Count)];
 			if (antag == null)
 			{
-				Logger.LogError("No antags available in AntagData! Ensure you added the ScriptableObjects to it.", Category.Antags);
+				Loggy.LogError("No antags available in AntagData! Ensure you added the ScriptableObjects to it.", Category.Antags);
 			}
 			return Instantiate(antag);
 		}
@@ -66,16 +67,16 @@ namespace Antagonists
 		{
 			int amount = antag.NumberOfObjectives;
 			// Get all antag core and shared objectives which are possible for this player
-			List<Objective> objPool = antag.CoreObjectives.Where(obj => obj.IsPossible(Mind)).ToList();
+			List<Objective> objPool = antag.CoreObjectives.Where(obj => obj.IsPossible(Mind) && antag.BlackListedObjectives.Contains(obj) == false).ToList();
 			if (antag.CanUseSharedObjectives)
 			{
-				objPool = objPool.Concat(SharedObjectives).Where(obj => obj.IsPossible(Mind)).ToList();
+				objPool = objPool.Concat(SharedObjectives).Where(obj => obj.IsPossible(Mind) && antag.BlackListedObjectives.Contains(obj) == false).ToList();
 			}
 
 			if (objPool.Count == 0)
 			{
 				amount = 0;
-				Logger.LogWarning($"No objectives available, only assigning escape type objective", Category.Antags);
+				Loggy.LogWarning($"No objectives available, only assigning escape type objective", Category.Antags);
 			}
 
 			List<Objective> generatedObjs = new List<Objective>();
@@ -120,6 +121,13 @@ namespace Antagonists
 				newObjective = PickRandomObjective(ref allowedGimmicks, false);
 				newObjective.DoSetup(Mind);
 				generatedObjs.Add(newObjective);
+			}
+
+			foreach (var alwaysStartWithObjective in antag.AlwaysStartWithObjectives)
+			{
+				var objectiveNew = Instantiate(alwaysStartWithObjective);
+				objectiveNew.DoSetup(Mind);
+				generatedObjs.Add(objectiveNew);
 			}
 
 			return generatedObjs;

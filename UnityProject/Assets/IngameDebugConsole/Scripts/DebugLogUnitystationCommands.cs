@@ -9,6 +9,7 @@ using Random = UnityEngine.Random;
 using DatabaseAPI;
 using HealthV2;
 using Learning;
+using Logs;
 using Messages.Client;
 using Messages.Server;
 using Messages.Server.HealthMessages;
@@ -36,12 +37,12 @@ namespace IngameDebugConsole
 		{
 			if(PlayerManager.LocalPlayerObject == null || PlayerManager.LocalPlayerScript == null)
 			{
-				Logger.Log("Attempted to open the conveyor belt tool when the player has not joined the round yet.");
+				Loggy.Log("Attempted to open the conveyor belt tool when the player has not joined the round yet.");
 				return;
 			}
 			if (PlayerManager.LocalPlayerScript.IsDeadOrGhost)
 			{
-				Logger.Log("Only alive players can use this.");
+				Loggy.Log("Only alive players can use this.");
 				return;
 			}
 			//TODO : Add a check to see which gamemode the player is on currently once sandbox is in instead of locking this behind for admins only.
@@ -84,48 +85,53 @@ namespace IngameDebugConsole
 			bool playerSpawned = PlayerManager.LocalPlayerObject != null;
 			if (playerSpawned == false)
 			{
-				Logger.LogError("Player has not spawned yet to be able to check for their objectives!");
+				Loggy.LogError("Player has not spawned yet to be able to check for their objectives!");
 				return;
 			}
 			if (PlayerManager.LocalMindScript.IsAntag == false)
 			{
-				Logger.LogError("Player is not an antagonist!");
+				Loggy.LogError("Player is not an antagonist!");
 				return;
 			}
 
-			Logger.Log("Current player objectives :");
+			Loggy.Log("Current player objectives :");
 			foreach (var objective in PlayerManager.LocalMindScript.GetAntag().Objectives)
 			{
-				Logger.Log($"{objective.ObjectiveName} -> {objective.IsComplete()}");
+				Loggy.Log($"{objective.ObjectiveName} -> {objective.IsComplete()}");
 			}
 		}
 
 		[ConsoleMethod("suicide", "kill yo' self")]
 		public static void RunSuicide()
 		{
-			bool playerSpawned = (PlayerManager.LocalPlayerObject != null);
-			if (!playerSpawned)
+			if (PlayerManager.LocalMindScript == null || PlayerManager.LocalMindScript.IsGhosting)
 			{
-				Logger.Log("Cannot commit suicide. Player has not spawned.", Category.DebugConsole);
+				Loggy.LogError("You cannot kill yourself as a ghost!");
+				return;
+			}
+			bool playerSpawned = (PlayerManager.LocalPlayerObject != null);
+			if (playerSpawned == false)
+			{
+				Loggy.Log("Cannot commit suicide. Player has not spawned.", Category.DebugConsole);
 
 			}
 			else
 			{
-				SuicideMessage.Send(null);
+				PlayerManager.LocalPlayerScript.PlayerNetworkActions.HardSuicide();
 			}
 		}
 
 		[ConsoleMethod("myid", "Prints your uuid for your player account")]
 		public static void RunPrintUID()
 		{
-			Logger.Log($"{ServerData.UserID}", Category.DebugConsole);
+			Loggy.Log($"{ServerData.UserID}", Category.DebugConsole);
 		}
 
 		[ConsoleMethod("copyid", "Copies your uuid to your clipboard.")]
 		public static void CopyUserID()
 		{
 			TextUtils.CopyTextToClipboard($"{ServerData.UserID}");
-			Logger.Log($"UUID Copied to clipboard.", Category.DebugConsole);
+			Loggy.Log($"UUID Copied to clipboard.", Category.DebugConsole);
 		}
 
 		[ConsoleMethod("damage-self", "Server only cmd.\nUsage:\ndamage-self <bodyPart> <brute amount> <burn amount>\nExample: damage-self LeftArm 40 20.Insert")]
@@ -133,25 +139,25 @@ namespace IngameDebugConsole
 		{
 			if (CustomNetworkManager.Instance._isServer == false)
 			{
-				Logger.Log("Can only execute command from server.", Category.DebugConsole);
+				Loggy.Log("Can only execute command from server.", Category.DebugConsole);
 				return;
 			}
 
 			bool success = BodyPartType.TryParse(bodyPartString, true, out BodyPartType bodyPart);
 			if (success == false)
 			{
-				Logger.Log("Invalid body part '" + bodyPartString + "'", Category.DebugConsole);
+				Loggy.Log("Invalid body part '" + bodyPartString + "'", Category.DebugConsole);
 				return;
 			}
 
 			bool playerSpawned = (PlayerManager.LocalPlayerObject != null);
 			if (playerSpawned == false)
 			{
-				Logger.Log("Cannot damage player. Player has not spawned.", Category.DebugConsole);
+				Loggy.Log("Cannot damage player. Player has not spawned.", Category.DebugConsole);
 				return;
 			}
 
-			Logger.Log($"Debugger inflicting {burnDamage} burn damage and {bruteDamage} brute damage on {bodyPart} of {PlayerManager.LocalPlayerScript.playerName}", Category.DebugConsole);
+			Loggy.Log($"Debugger inflicting {burnDamage} burn damage and {bruteDamage} brute damage on {bodyPart} of {PlayerManager.LocalPlayerScript.playerName}", Category.DebugConsole);
 			HealthBodyPartMessage.Send(PlayerManager.LocalPlayerObject, PlayerManager.LocalPlayerObject, bodyPart, burnDamage, bruteDamage);
 		}
 
@@ -163,11 +169,11 @@ namespace IngameDebugConsole
 		{
 			if (CustomNetworkManager.Instance._isServer == false)
 			{
-				Logger.Log("Can only execute command from server.", Category.DebugConsole);
+				Loggy.Log("Can only execute command from server.", Category.DebugConsole);
 				return;
 			}
 
-			Logger.Log("Triggered round restart from DebugConsole.", Category.DebugConsole);
+			Loggy.Log("Triggered round restart from DebugConsole.", Category.DebugConsole);
 			VideoPlayerMessage.Send(VideoType.RestartRound);
 			GameManager.Instance.RoundEndTime = 5f;
 			GameManager.Instance.EndRound();
@@ -181,11 +187,11 @@ namespace IngameDebugConsole
 		{
 			if (CustomNetworkManager.Instance._isServer == false)
 			{
-				Logger.Log("Can only execute command from server.", Category.DebugConsole);
+				Loggy.Log("Can only execute command from server.", Category.DebugConsole);
 				return;
 			}
 
-			Logger.Log("Triggered round end from DebugConsole.", Category.DebugConsole);
+			Loggy.Log("Triggered round end from DebugConsole.", Category.DebugConsole);
 			VideoPlayerMessage.Send(VideoType.RestartRound);
 			GameManager.Instance.EndRound();
 		}
@@ -198,18 +204,18 @@ namespace IngameDebugConsole
 		{
 			if (CustomNetworkManager.Instance._isServer == false)
 			{
-				Logger.Log("Can only execute command from server.", Category.DebugConsole);
+				Loggy.Log("Can only execute command from server.", Category.DebugConsole);
 				return;
 			}
 
 			if (GameManager.Instance.CurrentRoundState == RoundState.PreRound && GameManager.Instance.waitForStart)
 			{
-				Logger.Log("Triggered round countdown skip (start now) from DebugConsole.", Category.DebugConsole);
+				Loggy.Log("Triggered round countdown skip (start now) from DebugConsole.", Category.DebugConsole);
 				GameManager.Instance.StartRound();
 			}
 			else
 			{
-				Logger.Log("Can only execute during pre-round / countdown.", Category.DebugConsole);
+				Loggy.Log("Can only execute during pre-round / countdown.", Category.DebugConsole);
 				return;
 			}
 
@@ -223,18 +229,18 @@ namespace IngameDebugConsole
 		{
 			if (CustomNetworkManager.Instance._isServer == false)
 			{
-				Logger.Log("Can only execute command from server.", Category.DebugConsole);
+				Loggy.Log("Can only execute command from server.", Category.DebugConsole);
 				return;
 			}
 
 			if (GameManager.Instance.PrimaryEscapeShuttle.Status == EscapeShuttleStatus.DockedCentcom)
 			{
 				GameManager.Instance.PrimaryEscapeShuttle.CallShuttle(out var result, 40);
-				Logger.Log("Called Escape shuttle from DebugConsole: "+result, Category.DebugConsole);
+				Loggy.Log("Called Escape shuttle from DebugConsole: "+result, Category.DebugConsole);
 			}
 			else
 			{
-				Logger.Log("Escape shuttle isn't docked at centcom to be called.", Category.DebugConsole);
+				Loggy.Log("Escape shuttle isn't docked at centcom to be called.", Category.DebugConsole);
 			}
 		}
 
@@ -254,7 +260,7 @@ namespace IngameDebugConsole
 
 			if (!catFound)
 			{
-				Logger.Log("Category not found", Category.DebugConsole);
+				Loggy.Log("Category not found", Category.DebugConsole);
 				return;
 			}
 
@@ -269,7 +275,7 @@ namespace IngameDebugConsole
 				logLevel = (LogLevel)level;
 			}
 
-			Logger.SetLogLevel(category, logLevel);
+			Loggy.SetLogLevel(category, logLevel);
 		}
 #if UNITY_EDITOR
 		[MenuItem("Networking/Push everyone up")]
@@ -309,7 +315,7 @@ namespace IngameDebugConsole
 			foreach (PlayerInfo player in PlayerList.Instance.InGamePlayers) {
 				//Printing this the pretty way, example:
 				//Bob (CAPTAIN) is located at (77,0, 52,0, 0,0)
-				Logger.LogFormat( "{0} ({1)} is located at {2}.", Category.DebugConsole, player.Name, player.Job, player.Script.WorldPos );
+				Loggy.LogFormat( "{0} ({1)} is located at {2}.", Category.DebugConsole, player.Name, player.Job, player.Script.WorldPos );
 			}
 
 		}
@@ -619,7 +625,7 @@ namespace IngameDebugConsole
 		{
 			if (CustomNetworkManager.Instance._isServer == false)
 			{
-				Logger.Log("Can only execute command from server.", Category.DebugConsole);
+				Loggy.Log("Can only execute command from server.", Category.DebugConsole);
 				return;
 			}
 
@@ -631,7 +637,7 @@ namespace IngameDebugConsole
 		{
 			if (CustomNetworkManager.Instance._isServer == false)
 			{
-				Logger.Log("Can only execute command from server.", Category.DebugConsole);
+				Loggy.Log("Can only execute command from server.", Category.DebugConsole);
 				return;
 			}
 
@@ -708,7 +714,7 @@ namespace IngameDebugConsole
 		{
 			if (CustomNetworkManager.Instance._isServer == false)
 			{
-				Logger.Log("Can only execute command from server.", Category.DebugConsole);
+				Loggy.Log("Can only execute command from server.", Category.DebugConsole);
 				return;
 			}
 
@@ -734,6 +740,48 @@ namespace IngameDebugConsole
 		{
 			if(IsAdmin() == false) return;
 			AdminCommandsManager.Instance.TurnOnEmergencyLightsStationWide();
+		}
+
+#if UNITY_EDITOR
+		[MenuItem("Networking/Give me a cyborg!")]
+#endif
+		private static void GenerateCyborg()
+		{
+			var Cyborg =  Spawn.ServerPrefab("test_cyborgTODO_dynamic", PlayerManager.LocalPlayerScript.gameObject.transform.position).GameObject;
+			//Spawn.ServerPrefab()
+
+			foreach (var slot in Cyborg.GetComponent<ItemStorage>().GetIndexedSlots())
+			{
+				if (slot.Item != null)
+				{
+					var Head = Spawn.ServerPrefab("Cyborg Head").GameObject;
+
+					Head.GetComponent<ItemStorage>().ServerTryAdd(Spawn.ServerPrefab("Artificial Brain").GameObject);
+
+					slot.Item.GetComponent<ItemStorage>().ServerTryAdd(Head);
+					slot.Item.GetComponent<ItemStorage>().ServerTryAdd(Spawn.ServerPrefab("cyborg left arm").GameObject);
+					slot.Item.GetComponent<ItemStorage>().ServerTryAdd(Spawn.ServerPrefab("cyborg leg left").GameObject);
+					slot.Item.GetComponent<ItemStorage>().ServerTryAdd(Spawn.ServerPrefab("cyborg leg right").GameObject);
+					slot.Item.GetComponent<ItemStorage>().ServerTryAdd(Spawn.ServerPrefab("cyborg right arm").GameObject);
+					slot.Item.GetComponent<ItemStorage>().ServerTryAdd(Spawn.ServerPrefab("Cyborg Torso").GameObject);
+					slot.Item.GetComponent<ItemStorage>().ServerTryAdd(Spawn.ServerPrefab("ToolCarousel").GameObject);
+				}
+
+			}
+
+		}
+
+		[ConsoleMethod("reset-movement", "Resets all movement values. Helpful if you get stuck for no reason.")]
+		public static void ResetMovementStats()
+		{
+			if (PlayerManager.LocalPlayerScript == null)
+			{
+				Loggy.LogError("[Console Command] - Cannot Reset movement due to null player.", Category.DebugConsole);
+				return;
+			}
+			PlayerManager.LocalPlayerScript.PlayerNetworkActions.CmdResetMovementForSelf();
+			Loggy.Log("[Console Command] - Movement Reset Successfully. " +
+			           "If you're still stuck, please report this and any errors you might find in the console on github/discord.", Category.DebugConsole);
 		}
 	}
 }

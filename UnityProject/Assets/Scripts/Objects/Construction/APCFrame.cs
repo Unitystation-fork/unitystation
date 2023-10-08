@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using Items;
+using Logs;
 using UnityEngine;
 using Mirror;
 using ScriptableObjects;
@@ -61,7 +62,7 @@ namespace Objects.Construction
 			}
 			catch (NullReferenceException exception)
 			{
-				Logger.LogError($"Catched a NRE in APCFrame OnEnable() {exception.Message} \n {exception.StackTrace}", Category.Electrical);
+				Loggy.LogError($"Catched a NRE in APCFrame OnEnable() {exception.Message} \n {exception.StackTrace}", Category.Electrical);
 			}
 		}
 		private void OnDisable()
@@ -77,7 +78,7 @@ namespace Objects.Construction
 		/// <returns></returns>
 		public bool WillInteract(HandApply interaction, NetworkSide side)
 		{
-			if (!DefaultWillInteract.Default(interaction, side)) return false;
+			if (DefaultWillInteract.Default(interaction, side) == false) return false;
 
 			if (!Validations.IsTarget(gameObject, interaction)) return false;
 
@@ -85,32 +86,32 @@ namespace Objects.Construction
 			if (CurrentState == initialState)
 			{
 				//Adds the power control module or deconstruct
-				return (Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Cable) && Validations.HasUsedAtLeast(interaction, 5)) ||
+				return (Validations.HasItemTrait(interaction, CommonTraits.Instance.Cable) && Validations.HasUsedAtLeast(interaction, 5)) ||
 					Validations.HasUsedActiveWelder(interaction);
 			}
 			else if (CurrentState == cablesAddedState)
 			{
 				//cut cables or add power control module
-				return Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Wirecutter) ||
-					  Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.PowerControlBoard);
+				return Validations.HasItemTrait(interaction, CommonTraits.Instance.Wirecutter) ||
+					  Validations.HasItemTrait(interaction, CommonTraits.Instance.PowerControlBoard);
 			}
 			else if (CurrentState == powerControlAddedState)
 			{
 				//Remove power control module or add power cell
-				return Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Crowbar) ||
-					Validations.HasUsedItemTrait(interaction, powerCellTrait);
+				return Validations.HasItemTrait(interaction, CommonTraits.Instance.Crowbar) ||
+					Validations.HasItemTrait(interaction, powerCellTrait);
 			}
 			else if (CurrentState == powerCellAddedState)
 			{
 				//wrench on cover or crowbar out power control module which removes the power cell too
-				return Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Wrench) ||
-					   Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Crowbar);
+				return Validations.HasItemTrait(interaction, CommonTraits.Instance.Wrench) ||
+					   Validations.HasItemTrait(interaction, CommonTraits.Instance.Crowbar);
 			}
 			else if (CurrentState == wrenchedState)
 			{
 				//screw in parts or crowbar off the cover
-				return Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Screwdriver) ||
-					   Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Crowbar);
+				return Validations.HasItemTrait(interaction, CommonTraits.Instance.Screwdriver) ||
+					   Validations.HasItemTrait(interaction, CommonTraits.Instance.Crowbar);
 			}
 
 			return false;
@@ -150,7 +151,7 @@ namespace Objects.Construction
 		/// <param name="interaction"></param>
 		private void InitialStateInteraction(HandApply interaction)
 		{
-			if (Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Cable) &&
+			if (Validations.HasItemTrait(interaction, CommonTraits.Instance.Cable) &&
 									 Validations.HasUsedAtLeast(interaction, 5))
 			{
 				//add 5 cables
@@ -187,7 +188,7 @@ namespace Objects.Construction
 		/// <param name="interaction"></param>
 		private void CablesAddedStateInteraction(HandApply interaction)
 		{
-			if (Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Wirecutter))
+			if (Validations.HasItemTrait(interaction, CommonTraits.Instance.Wirecutter))
 			{
 				//cut out cables
 				Chat.AddActionMsgToChat(interaction, $"You remove the cables.",
@@ -198,7 +199,7 @@ namespace Objects.Construction
 
 				spriteHandler.ChangeSprite((int)SpriteStates.Frame);
 			}
-		    else if (Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.PowerControlBoard))
+		    else if (Validations.HasItemTrait(interaction, CommonTraits.Instance.PowerControlBoard))
 			{
 				//stick in the circuit board
 				Chat.AddActionMsgToChat(interaction, $"You place the {interaction.UsedObject.ExpensiveName()} inside the frame.",
@@ -217,7 +218,7 @@ namespace Objects.Construction
 		/// <param name="interaction"></param>
 		private void PowerControlAddedStateInteraction(HandApply interaction)
 		{
-			if (Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Crowbar))
+			if (Validations.HasItemTrait(interaction, CommonTraits.Instance.Crowbar))
 			{
 				Chat.AddActionMsgToChat(interaction, $"You remove the power control module from the frame.",
 					$"{interaction.Performer.ExpensiveName()} removes the power control module from the frame.");
@@ -225,7 +226,7 @@ namespace Objects.Construction
 
 				RemoveCircuitAndParts();
 			}
-			else if (Validations.HasUsedItemTrait(interaction, powerCellTrait))
+			else if (Validations.HasItemTrait(interaction, powerCellTrait))
 			{
 				var usedObject = interaction.UsedObject;
 
@@ -246,7 +247,7 @@ namespace Objects.Construction
 		private void PowerCellAddedStateInteraction(HandApply interaction)
 		{
 			//Complete construction, spawn new machine and send data over to it.
-			if (Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Wrench))
+			if (Validations.HasItemTrait(interaction, CommonTraits.Instance.Wrench))
 			{
 				//secure the APC's cover
 				ToolUtils.ServerPlayToolSound(interaction);
@@ -262,7 +263,7 @@ namespace Objects.Construction
 					});
 
 			}
-			else if (Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Crowbar))
+			else if (Validations.HasItemTrait(interaction, CommonTraits.Instance.Crowbar))
 			{
 				//Remove the the circuit board and power cell.
 				Chat.AddActionMsgToChat(interaction, $"You remove the power control module from the frame.",
@@ -280,7 +281,7 @@ namespace Objects.Construction
 		private void WrenchedStateInteraction(HandApply interaction)
 		{
 			//Complete construction, spawn new machine and send data over to it.
-			if (Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Screwdriver))
+			if (Validations.HasItemTrait(interaction, CommonTraits.Instance.Screwdriver))
 			{
 				Chat.AddActionMsgToChat(interaction, $"You secure the electronics to the APC.",
 					$"{interaction.Performer.ExpensiveName()} secures the electronics to the APC.");
@@ -316,7 +317,7 @@ namespace Objects.Construction
 				//Despawn frame
 				_ = Despawn.ServerSingle(gameObject);
 			}
-			else if (Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Crowbar))
+			else if (Validations.HasItemTrait(interaction, CommonTraits.Instance.Crowbar))
 			{
 				//Remove the cover
 				ToolUtils.ServerPlayToolSound(interaction);

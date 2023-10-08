@@ -1,9 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Logs;
 using UnityEngine;
 using Mirror;
-
+using UnityEngine.Events;
 using UnityEngine.Serialization;
 #if UNITY_EDITOR
 using Unity.EditorCoroutines.Editor;
@@ -91,6 +92,8 @@ public class SpriteHandler : MonoBehaviour
 	/// </summary>
 	public List<Action<Sprite>> OnSpriteChanged = new List<Action<Sprite>>();
 
+	public UnityEvent OnSpriteUpdated = new UnityEvent();
+
 	/// <summary>
 	/// Invokes when sprite data scriptable object is changed
 	/// Null if sprite became hidden
@@ -126,6 +129,11 @@ public class SpriteHandler : MonoBehaviour
 
 			return null;
 		}
+	}
+
+	public virtual void ClearPresentSpriteSet()
+	{
+		PresentSpriteSet = null;
 	}
 
 	/// <summary>
@@ -195,11 +203,12 @@ public class SpriteHandler : MonoBehaviour
 
 		if (cataloguePage >= SubCatalogue.Count)
 		{
-			Logger.LogError($"Sprite catalogue index '{cataloguePage}' is out of bounds on {transform.parent.gameObject}.");
+			Loggy.LogError($"Sprite catalogue index '{cataloguePage}' is out of bounds on {transform.parent.gameObject}.");
 			return;
 		}
 
 		this.cataloguePage = cataloguePage;
+
 		if (isSubCatalogueChanged)
 		{
 			SetSpriteSO(SubCatalogue[cataloguePage]);
@@ -467,7 +476,7 @@ public class SpriteHandler : MonoBehaviour
 			var NetID = SpriteHandlerManager.GetRecursivelyANetworkBehaviour(this.gameObject);
 			if (NetID == null)
 			{
-				Logger.LogError("Was unable to find A NetworkBehaviour for ",
+				Loggy.LogError("Was unable to find A NetworkBehaviour for ",
 					Category.Sprites);
 				return;
 			}
@@ -480,7 +489,7 @@ public class SpriteHandler : MonoBehaviour
 				{
 					gamename = gameObject.name;
 				}
-				Logger.LogError("Was unable to find A NetworkBehaviour for " + gamename,
+				Loggy.LogError("Was unable to find A NetworkBehaviour for " + gamename,
 					Category.Sprites);
 			}
 		}
@@ -502,7 +511,7 @@ public class SpriteHandler : MonoBehaviour
 		{
 			if (newSpriteSO.SetID == -1)
 			{
-				Logger.Log("NewSpriteDataSO NO ID!" + newSpriteSO.name, Category.Sprites);
+				Loggy.Log("NewSpriteDataSO NO ID!" + newSpriteSO.name, Category.Sprites);
 			}
 			if (spriteChange.Empty) spriteChange.Empty = false;
 			spriteChange.PresentSpriteSet = newSpriteSO.SetID;
@@ -576,7 +585,7 @@ public class SpriteHandler : MonoBehaviour
 		yield return null;
 		if (networkIdentity.netId == 0)
 		{
-			Logger.LogError($"ID hasn't been set for ${this.transform.parent}.", Category.Sprites);
+			Loggy.LogError($"ID hasn't been set for ${this.transform.parent}.", Category.Sprites);
 			yield break;
 		}
 
@@ -644,6 +653,7 @@ public class SpriteHandler : MonoBehaviour
 			SpriteHandlerManager.Instance.QueueChanges.Remove(this);
 			SpriteHandlerManager.Instance.NewClientChanges.Remove(this);
 		}
+		OnSpriteUpdated?.RemoveAllListeners();
 	}
 
 	protected virtual void SetImageColor(Color value)
@@ -716,6 +726,7 @@ public class SpriteHandler : MonoBehaviour
 	{
 
 #if  UNITY_EDITOR
+		if (this == null) return;
 		if (Application.isPlaying == false)
 		{
 			if (spriteRenderer == null)
@@ -767,6 +778,7 @@ public class SpriteHandler : MonoBehaviour
 		{
 			OnSpriteChanged[i].Invoke(value);
 		}
+		OnSpriteUpdated?.Invoke();
 	}
 
 	protected virtual bool HasSpriteInImageComponent()
@@ -886,7 +898,7 @@ public class SpriteHandler : MonoBehaviour
 
 		if (isAnimation == false)
 		{
-			UpdateManager.Remove(CallbackType.UPDATE, UpdateMe);
+			UpdateManager.Remove(CallbackType.LATE_UPDATE, UpdateMe);
 		}
 	}
 
@@ -894,7 +906,7 @@ public class SpriteHandler : MonoBehaviour
 	{
 		InternalChangeSprite(CataloguePage + 1 < SubCatalogue.Count ? CataloguePage + 1 : 0, false);
 		isAnimation = false;
-		UpdateManager.Remove(CallbackType.UPDATE, UpdateMe);
+		UpdateManager.Remove(CallbackType.LATE_UPDATE, UpdateMe);
 	}
 
 	private void SetSprite(SpriteDataSO.Frame frame)
@@ -965,12 +977,12 @@ public class SpriteHandler : MonoBehaviour
 
 		if (turnOn && isAnimation == false)
 		{
-			UpdateManager.Add(CallbackType.UPDATE, UpdateMe);
+			UpdateManager.Add(CallbackType.LATE_UPDATE, UpdateMe);
 			isAnimation = true;
 		}
 		else if (turnOn == false && isAnimation)
 		{
-			UpdateManager.Remove(CallbackType.UPDATE, UpdateMe);
+			UpdateManager.Remove(CallbackType.LATE_UPDATE, UpdateMe);
 			animationIndex = 0;
 			isAnimation = false;
 		}

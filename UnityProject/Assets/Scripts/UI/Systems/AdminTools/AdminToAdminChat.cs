@@ -6,6 +6,7 @@ using Mirror;
 using DatabaseAPI;
 using Messages.Client.Admin;
 using Messages.Server.AdminTools;
+using Newtonsoft.Json;
 
 
 namespace AdminTools
@@ -49,7 +50,7 @@ namespace AdminTools
 			var entry = new AdminChatMessage
 			{
 				fromUserid = userId,
-				Message = message
+				Message = GameManager.Instance.RoundTime.ToString(@"hh\:mm\:ss") + " - " + message
 			};
 
 			serverAdminChatLogs.Add(entry);
@@ -86,7 +87,7 @@ namespace AdminTools
 		{
 			if (string.IsNullOrEmpty(unreadMessagesJson)) return;
 
-			var update = JsonUtility.FromJson<AdminChatUpdate>(unreadMessagesJson);
+			var update = JsonConvert.DeserializeObject<AdminChatUpdate>(unreadMessagesJson);
 			clientAdminChatLogs.AddRange(update.messages);
 
 			chatScroll.AppendChatEntries(update.messages.Cast<ChatEntryData>().ToList());

@@ -86,6 +86,7 @@ public class CommonTraits : SingletonScriptableObject<CommonTraits>
 	[BoxGroup("Clothing")] public ItemTrait GasMask;
 	[BoxGroup("Clothing")] public ItemTrait BlackGloves;
 	[BoxGroup("Clothing")] public ItemTrait WizardGarb;
+	[BoxGroup("Clothing")] public ItemTrait Sunglasses;
 
 	public ItemTrait LightTube;
 	public ItemTrait LightBulb;
@@ -101,6 +102,8 @@ public class CommonTraits : SingletonScriptableObject<CommonTraits>
 	public ItemTrait Beaker;
 
 	public ItemTrait CoreBodyPart;
+
+	public ItemTrait Pill;
 
 	/// <summary>
 	/// Do not use this list to get references to traits, locally reference them in your scripts instead!

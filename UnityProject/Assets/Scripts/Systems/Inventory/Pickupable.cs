@@ -4,6 +4,7 @@ using Mirror;
 using System.Collections;
 using System.Collections.Generic;
 using Items;
+using Logs;
 using UI;
 using UnityEngine;
 using UnityEngine.Events;
@@ -40,10 +41,14 @@ public class Pickupable : NetworkBehaviour, IPredictedCheckedInteractable<HandAp
 
 	[SyncVar] private uint clientSynchronisedStorageIn;
 
-	public GameObject ClientStoredInItemStorage
+	public GameObject StoredInItemStorageNetworked
 	{
 		get
 		{
+			if (isServer)
+			{
+				return ItemSlot?.ItemStorage.OrNull()?.gameObject;
+			}
 			var spawned = CustomNetworkManager.IsServer ? NetworkServer.spawned : NetworkClient.spawned;
 			if (clientSynchronisedStorageIn is NetId.Empty or NetId.Invalid)
 			{
@@ -72,6 +77,7 @@ public class Pickupable : NetworkBehaviour, IPredictedCheckedInteractable<HandAp
 	/// Client Side Events. Expects an interactor.
 	/// </summary>
 	public UnityEvent<GameObject> OnMoveToPlayerInventory;
+	public UnityEvent<GameObject> OnInventoryMoveServerEvent;
 
 	public UnityEvent<GameObject> OnDrop;
 	public UnityEvent<GameObject> OnThrow;
@@ -103,6 +109,7 @@ public class Pickupable : NetworkBehaviour, IPredictedCheckedInteractable<HandAp
 			Inventory.ServerDespawn(itemSlot);
 		}
 		OnMoveToPlayerInventory?.RemoveAllListeners();
+		OnInventoryMoveServerEvent?.RemoveAllListeners();
 		OnDrop?.RemoveAllListeners();
 		OnThrow?.RemoveAllListeners();
 	}
@@ -143,7 +150,7 @@ public class Pickupable : NetworkBehaviour, IPredictedCheckedInteractable<HandAp
 
 
 		if (info.ToPlayer != null &&
-		    HasClothingItem(info.ToPlayer, RecordedItemSlot))
+			HasClothingItem(info.ToPlayer, RecordedItemSlot))
 		{
 			//change appearance based on new item
 			PlayerAppearanceMessage.SendToAll(info.ToPlayer.gameObject,
@@ -152,6 +159,7 @@ public class Pickupable : NetworkBehaviour, IPredictedCheckedInteractable<HandAp
 			//ask target playerscript to update shown name.
 			info.ToPlayer.GetComponent<PlayerScript>().RefreshVisibleName();
 		}
+		OnInventoryMoveServerEvent?.Invoke(gameObject);
 
 		switch (info.RemoveType)
 		{
@@ -188,14 +196,16 @@ public class Pickupable : NetworkBehaviour, IPredictedCheckedInteractable<HandAp
 
 	public virtual bool WillInteract(HandApply interaction, NetworkSide side)
 	{
-		if (!canPickup) return false;
+		if (UniversalObjectPhysics.IsBuckled) return false;
+
+		if (canPickup == false) return false;
 		//we need to be the target
 		if (interaction.TargetObject != gameObject) return false;
 		//hand needs to be empty for pickup
 		if (interaction.HandObject != null) return false;
 		//instead of the base logic, we need to use extended range check for CanApply
 		if (DefaultWillInteract.Default(interaction, side) == false) return false;
-		if (!Validations.CanApply(interaction.PerformerPlayerScript, interaction.TargetObject, side, true)) return false;
+		if (Validations.CanApply(interaction.PerformerPlayerScript, interaction.TargetObject, side, true) == false) return false;
 
 		return true;
 	}
@@ -249,7 +259,7 @@ public class Pickupable : NetworkBehaviour, IPredictedCheckedInteractable<HandAp
 			var trajectory = ((Vector3)ps.WorldPos - worldPosition) / Random.Range(10, 31);
 			uop.NewtonianPush(trajectory ,2 , spinFactor: 15 );
 
-			Logger.LogTraceFormat( "Nudging! server pos:{0} player pos:{1}", Category.Movement,
+			Loggy.LogTraceFormat( "Nudging! server pos:{0} player pos:{1}", Category.Movement,
 				position, interaction.Performer.transform.position);
 			//client prediction doesn't handle nudging, so we need to roll them back
 			ServerRollbackClient(interaction);
@@ -260,7 +270,7 @@ public class Pickupable : NetworkBehaviour, IPredictedCheckedInteractable<HandAp
 			//set ForceInform to false for simulation
 			if (Inventory.ServerAdd(this, interaction.HandSlot))
 			{
-				Logger.LogTraceFormat("Pickup success! server pos:{0} player pos:{1} (floating={2})", Category.Movement,
+				Loggy.LogTraceFormat("Pickup success! server pos:{0} player pos:{1} (floating={2})", Category.Movement,
 					uop.transform.position, interaction.Performer.transform.position, uop.IsCurrentlyFloating);
 			}
 			else

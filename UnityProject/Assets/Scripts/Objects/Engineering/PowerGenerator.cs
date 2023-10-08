@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using AddressableReferences;
 using UnityEngine;
 using Mirror;
+using NaughtyAttributes;
 using Systems.Electricity;
 using Systems.Electricity.NodeModules;
 using Objects.Construction;
@@ -51,6 +52,8 @@ namespace Objects.Engineering
 			Off = 1,
 			On = 2
 		}
+
+		public float FuelAmount => fuelAmount;
 
 		#region Lifecycle
 
@@ -140,11 +143,11 @@ namespace Objects.Engineering
 
 		public bool WillInteract(HandApply interaction, NetworkSide side)
 		{
-			if (!DefaultWillInteract.Default(interaction, side)) return false;
+			if (DefaultWillInteract.Default(interaction, side) == false) return false;
 			if (interaction.TargetObject != gameObject) return false;
 			if (interaction.HandObject == null) return true;
 			if (Validations.HasAnyTrait(interaction.HandObject, fuelTypes)) return true;
-			
+
 			return false;
 		}
 
@@ -236,7 +239,7 @@ namespace Objects.Engineering
 			return false;
 		}
 
-		private void ToggleOn()
+		public void ToggleOn()
 		{
 			UpdateManager.Add(CallbackType.UPDATE, UpdateMe);
 			electricalNodeControl.TurnOnSupply();
@@ -250,6 +253,17 @@ namespace Objects.Engineering
 			electricalNodeControl.TurnOffSupply();
 			baseSpriteHandler.ChangeSprite((int)SpriteState.Off);
 			isOn = false;
+		}
+
+		public void SetFuel(float amount)
+		{
+			fuelAmount = amount;
+		}
+
+		[Button()]
+		public void DebugAddFuel()
+		{
+			SetFuel(fuelAmount + fuelPerSheet);
 		}
 	}
 }

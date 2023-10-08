@@ -32,7 +32,7 @@ namespace Objects.Science
 		public string messageOnTravelToThis;
 
 		private RegisterTile registerTile;
-		[SerializeField] private float maintRoomChanceModifier = 0.01f; //Squarestation quantum pads are less likely to teleport to maintrooms due to their nessasity.
+		[SerializeField] private float maintRoomChanceModifier = 0.1f; //Squarestation quantum pads are less likely to teleport to maintrooms due to their nessasity.
 
 		private Matrix Matrix => registerTile.Matrix;
 
@@ -116,7 +116,7 @@ namespace Objects.Science
 
 		public bool WillInteract(HandApply interaction, NetworkSide side)
 		{
-			if (!DefaultWillInteract.Default(interaction, side)) return false;
+			if (DefaultWillInteract.Default(interaction, side) == false) return false;
 
 			if (Validations.IsTarget(gameObject, interaction)) return true;
 
@@ -176,7 +176,8 @@ namespace Objects.Science
 			foreach (UniversalObjectPhysics player in Matrix.Get<UniversalObjectPhysics>(registerTileLocation, ObjectType.Player, true))
 			{
 				Chat.AddExamineMsgFromServer(player.gameObject, message);
-				SoundManager.PlayNetworkedForPlayer(player.gameObject, CommonSounds.Instance.StealthOff); //very weird, sometimes does the sound other times not.
+				SoundManager.PlayNetworkedForPlayer(connectedPad.gameObject, CommonSounds.Instance.StealthOff);
+				SoundManager.PlayNetworkedForPlayer(gameObject, CommonSounds.Instance.StealthOff);
 				TransportUtility.TransportObjectAndPulled(player, travelCoord, true, maintRoomChanceModifier);
 				somethingTeleported = true;
 

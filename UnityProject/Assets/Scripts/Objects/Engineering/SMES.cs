@@ -129,7 +129,7 @@ namespace Objects.Engineering
 
 		public bool WillInteract(HandApply interaction, NetworkSide side)
 		{
-			if (!DefaultWillInteract.Default(interaction, side)) return false;
+			if (DefaultWillInteract.Default(interaction, side) == false) return false;
 			if (interaction.TargetObject != gameObject) return false;
 			if (Validations.HasItemTrait(interaction.HandObject, CommonTraits.Instance.Crowbar))
 			{
@@ -261,7 +261,7 @@ namespace Objects.Engineering
 			{
 				isExploding = true;
 				TrySpark();
-				Chat.AddLocalMsgToChat($"<color=red>{gameObject.ExpensiveName()} starts to spit out sparks and smoke! No way this can end good...", gameObject);
+				Chat.AddActionMsgToChat(gameObject, $"<color=red>{gameObject.ExpensiveName()} starts to spit out sparks and smoke! No way this can end good...");
 				StartCoroutine(Emp());
 			}
 			batterySupplyingModule.CurrentCapacity -= EmpStrength * 1000;

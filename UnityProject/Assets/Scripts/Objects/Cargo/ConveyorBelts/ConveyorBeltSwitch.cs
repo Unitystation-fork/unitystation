@@ -65,17 +65,17 @@ namespace Construction.Conveyors
 
 		public bool WillInteract(HandApply interaction, NetworkSide side)
 		{
-			if (!DefaultWillInteract.Default(interaction, side)) return false;
+			if (DefaultWillInteract.Default(interaction, side) == false) return false;
 
 			if (!Validations.IsTarget(gameObject, interaction)) return false;
 
 			return interaction.HandObject == null ||
-					Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Wrench);
+					Validations.HasItemTrait(interaction, CommonTraits.Instance.Wrench);
 		}
 
 		public void ServerPerformInteraction(HandApply interaction)
 		{
-			if (Validations.HasUsedItemTrait(interaction, CommonTraits.Instance.Wrench))
+			if (Validations.HasItemTrait(interaction, CommonTraits.Instance.Wrench))
 			{
 				//deconsruct
 				ToolUtils.ServerUseToolWithActionMessages(interaction, 2f,
